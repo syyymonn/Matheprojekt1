@@ -1,0 +1,80 @@
+---
+title: "projekt 1"
+author: "simon"
+date: "2022-11-23"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r, results = FALSE, message = FALSE}
+library(readr)
+messungen <- read_csv("messungen.csv")
+```
+
+```{r, results = FALSE, message = FALSE}
+library(ggplot2)
+library(tidyverse)
+```
+
+```{r}
+data <- ggplot(messungen, aes(t, y)) +
+  geom_point()
+data
+```
+
+1. Beschreibe das Problem und Modell kurz in eigenen Worten. Formuliere die Berechnung von $\mu_{2|1}$ als numerisches Problem bezüglich $\mathbf y$, $\Sigma_{2,1}$ und $\Sigma_{1,1}$.
+
+Das Problem: Der Forscher hat erwartet, dass die gemessenen Punkte in etwa einer glatten Kurve folgen, hat dabei aber nicht bedacht, dass bei der Messung für alle Messzeitpunkte $t_{i}$ zum echten Wert $f(t_{i})$ der Messfehler $\varepsilon_{i}$ hinzukommt und  so das Endergebnis $\mathbf Y_{i} = f(t_{i}) + \varepsilon_{i}$ verfälscht. 
+
+Berechnung von $\mu_{2|1}$:
+
+Wir legen zuerst $\sigma, \gamma, \mathbf y, s$ (ein sample mit Werten zwischen 0 und 5, ebenso wie $t$) und $t$ als die unabhängige Variable der Messdaten fest.
+```{r}
+sigma <- 1
+gamma <- 1
+s <- sample(0:5, 30, replace = TRUE)
+t <- messungen$t
+y <- messungen$y
+parameter1 <- messungen$t
+parameter2 <- s
+```
+Die beiden Parameter sind Vektoren, die das Grundgerüst der $K_{t,s}$-Matrix bilden.
+
+Nun definieren wir die Funktion $K.mat$, die $\mu_{2|1}$ schrittweise in Abhängigkeit von den oben definierten Parametern berechnet.
+```{r}
+K.mat <- function(parameter1 = parameter1, parameter2 = parameter2, gamma = gamma, sigma = sigma, y.vector = y) {   
+  # wir legen defaults für die Funktionsparameter fest
+  K.basis <- function(x1 = parameter1, x2 = parameter2) {
+   K.1 <- matrix(0, ncol = length(x2), nrow = length(x1))
+for (i in seq_len(ncol(K.1))) {
+  K.1[, i] <- x1
+} 
+   K.1
+}      
+ 
+ K.matrix <- function(parameter1, parameter2) {
+   K.basis.done <- K.basis(parameter1, parameter2) - t(K.basis(parameter2, parameter1))
+   K.basis.done <- apply(K.basis.done, 2,  function(x) abs(x))
+   K.basis.done <- apply(K.basis.done, 2, function(x) exp((-x^2)/gamma))
+   K.basis.done
+ }
+ 
+ Sig2.1 <- t(K.matrix(parameter1, parameter2))
+ Sig1.1 <- K.matrix(parameter1, parameter1) + diag(sigma^2, nrow = length(parameter1))
+ 
+ L <- chol(Sig1.1)
+ L_transposed <- t(L)
+ x <- forwardsolve(L_transposed, y.vector)
+ B <- backsolve(L, x)
+ mu2bedingt1 <- Sig2.1 %*% B            # B ersetzt (Sig1.1)^(-1) %*% y
+}
+
+```
+
+K.matrix.done entspricht für die Parameter $t, s$ jetzt $K_{t, s}$ (siehe Aufgabenblatt).
+
+Es gilt nun $\mu_{2|1} = (\Sigma_{2, 1})^\top \cdot (\Sigma_{1, 1})^{-1} \cdot \mathbf y$
+
+Wir wissen, dass $\Sigma_{2, 1}= (K.matrix.done_{t, t'})^\top$ und
+ $(\Sigma_{1, 1})^{-1} = (K.matrix.done_{t, t} +\sigma^2 \cdot I_{n})^{-1}$.
